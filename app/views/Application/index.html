@@ -1,0 +1,211 @@
+#{extends 'main.html' /}
+#{set title:'Home' /}
+<style>
+
+    svg {
+        font: 10px sans-serif;
+    }
+
+    .line {
+        fill: none;
+        stroke: #000;
+        stroke-width: 1.5px;
+    }
+
+    .axis path,
+    .axis line {
+        fill: none;
+        stroke: #000;
+        shape-rendering: crispEdges;
+    }
+
+</style>
+<div id="socketout"></div>
+<script src="http://d3js.org/d3.v3.js"></script>
+<script type="text/javascript">
+    // Create a socket
+    var socket = new WebSocket('@@{Application.WebSocket.listen}')
+    var mean = 0;
+    var meanLast = 0;
+    var meanLast2 = 0;
+    var last = [];
+    var last2 = [];
+    var count = 0;
+    var MOY = 20;
+    var MOY2 = 100;
+    // Message received on the socket
+    socket.onmessage = function(event) {
+        //$('#socketout').append(event.data+"<br />");
+        //tick(event.data+":"+prev);
+
+        last.push(Number(event.data));
+        if(last.length > MOY){
+            last.shift();
+        }
+        meanLast = 0;
+        if(last.length > 0){
+            for(var i = 0; i < last.length; i++){
+                meanLast = Number(meanLast)+Number(last[i]);
+            }
+            meanLast = meanLast/last.length;
+        }
+
+        last2.push(Number(event.data));
+        if(last2.length > MOY2){
+            last2.shift();
+        }
+        meanLast2 = 0;
+        if(last2.length > 0){
+            for(var i = 0; i < last2.length; i++){
+                meanLast2 = Number(meanLast2)+Number(last2[i]);
+            }
+            meanLast2 = meanLast2/last2.length;
+        }
+
+            tick("" + event.data + ":" + mean + ":" + meanLast);
+        mean = (mean * count + Number(event.data))/(++count);
+    }
+</script>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+
+    var n = 400,
+            //random = d3.random.normal(0, 0),
+            data = d3.range(n);
+
+    var margin = {top: 20, right: 20, bottom: 20, left: 40},
+            width = 960 - margin.left - margin.right,
+            height = 500 - margin.top - margin.bottom;
+
+    var x = d3.scale.linear()
+            .domain([0, n - 1])
+            .range([0, width]);
+
+    var y = d3.scale.linear()
+            .domain([0, 10])
+            .range([height, 0]);
+
+    var line = d3.svg.line()
+            .interpolate("basis")
+            .x(function(a, i) { return x(i); })
+            .y(function(a, i) {
+                var split = (""+a).split(':');
+                if(null != split && split.length > 0){
+                    return y(split[0]); }
+                return 0;
+            });
+
+    var line2 = d3.svg.line()
+            .interpolate("basis")
+            .x(function(a,i) { return x(i); })
+            .y(function(a,i) {
+                var split = (""+a).split(':');
+                if(null != split && split.length > 1){
+                    return y(split[1]); }
+                return 0;
+            });
+
+    var line3 = d3.svg.line()
+            .interpolate("basis")
+            .x(function(a,i) { return x(i); })
+            .y(function(a,i) {
+                var split = (""+a).split(':');
+                if(null != split && split.length > 2){
+                    return y(split[2]); }
+                return 0;
+            });
+
+    var svg = d3.select("body").append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    svg.append("defs").append("clipPath")
+            .attr("id", "clip")
+            .append("rect")
+            .attr("width", width)
+            .attr("height", height);
+
+    svg.append("g")
+            .attr("class", "x axis")
+            .attr("transform", "translate(0," + y(0) + ")")
+            .call(d3.svg.axis().scale(x).orient("bottom"));
+
+    svg.append("g")
+            .attr("class", "y axis")
+            .call(d3.svg.axis().scale(y).orient("left"));
+
+    var path = svg.append("g")
+            .attr("clip-path", "url(#clip)")
+            .append("path")
+            .datum(data)
+            .attr("class", "line")
+            .style("stroke-dasharray", ("3, 3"))
+            .attr("d", line);
+
+    var path2 = svg.append("g")
+            .attr("clip-path", "url(#clip)")
+            .append("path")
+            .datum(data)
+            .attr("class", "line")
+            .style("stroke", "red")
+            .attr("d", line2) ;
+
+    var path3 = svg.append("g")
+            .attr("clip-path", "url(#clip)")
+            .append("path")
+            .datum(data)
+            .attr("class", "line")
+            .style("stroke", "green")
+            .attr("d", line3) ;
+
+
+    function tick2(val){
+        $('#socketout').append(val+"<br />");
+    }
+
+    function tick(values) {
+
+     /*   for(val in values){
+            console.log(values[val])
+            // push a new data point onto the back
+            data.push(values[val]);
+        }*/
+
+        data.push(values) ;
+
+        // redraw the line, and slide it to the left
+        path
+                .attr("d", line)
+                .attr("transform", null)
+                .transition()
+                .duration(180)
+                .ease("linear")
+                .attr("transform", "translate(" + x(-1) + ",0)")
+                .each("end", null);
+        path2
+                .attr("d", line2)
+                .attr("transform", null)
+                .transition()
+                .duration(180)
+                .ease("linear")
+                .attr("transform", "translate(" + x(-1) + ",0)")
+                .each("end", null);
+
+        path3
+                .attr("d", line3)
+                .attr("transform", null)
+                .transition()
+                .duration(180)
+                .ease("linear")
+                .attr("transform", "translate(" + x(-1) + ",0)")
+                .each("end", null);
+
+
+        // pop the old data point off the front
+        data.shift();
+
+    }
+
+</script>
